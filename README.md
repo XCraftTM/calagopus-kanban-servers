@@ -117,6 +117,15 @@ frontend/src/
     board/Chip.tsx, CollapsedList.tsx, CardComposer.tsx, AddListColumn.tsx
 ```
 
+### Board height
+
+`useFillViewportHeight` gives the board the height that reaches the bottom of the window, minus whatever
+still follows it on the page (the footer): it sets the height to the remaining window space, then takes
+back any vertical page overflow that creates. That keeps the horizontal scrollbar at the bottom of the
+screen. Each list column fills the board height, while the list itself grows with its cards up to that
+height. A `ResizeObserver` on `<body>` and the `resize` event re-fit it when content above the board
+changes.
+
 ### Drag and drop
 
 The board uses the panel's `DndBoard`, `DndSortableList` and `SortableItem` elements (dnd-kit). While a

@@ -32,6 +32,7 @@ import {
 import { BoardActionsContext, useBoardActions } from '../../lib/useBoardActions.ts';
 import { useBoardData } from '../../lib/useBoardData.ts';
 import { type ListDragData, listDndId, useBoardDnd } from '../../lib/useBoardDnd.ts';
+import { useFillViewportHeight } from '../../lib/useFillViewportHeight.ts';
 import { useExtTranslations } from '../../translations.ts';
 import ViewToggle from '../ViewToggle.tsx';
 import AddListColumn from './AddListColumn.tsx';
@@ -270,7 +271,10 @@ export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: bo
   const scrollRef = useRef<HTMLDivElement>(null);
   const onBoardPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const element = scrollRef.current;
-    if (!element || e.button !== 0 || e.pointerType !== 'mouse' || e.target !== e.currentTarget) return;
+    // the board itself or the empty space below a list (its column wrapper), never a list or card
+    const target = e.target as HTMLElement;
+    const onBackground = target === e.currentTarget || target.parentElement === e.currentTarget;
+    if (!element || e.button !== 0 || e.pointerType !== 'mouse' || !onBackground) return;
 
     const startX = e.clientX;
     const startScroll = element.scrollLeft;
@@ -288,6 +292,8 @@ export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: bo
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   };
+
+  useFillViewportHeight(scrollRef, !data.loading);
 
   // lists are as wide as one row of the widest chips needs, but never narrower than 20rem
   const [listWidth, setListWidth] = useState(320);
@@ -429,7 +435,7 @@ export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: bo
             <div
               ref={scrollRef}
               onPointerDown={onBoardPointerDown}
-              className='kanban-board flex items-start gap-3 overflow-x-auto pb-4 min-h-64 *:shrink-0'
+              className='kanban-board flex items-start gap-3 overflow-x-auto pb-4 *:h-full *:shrink-0'
             >
               {showUngrouped && (
                 <UngroupedColumn
@@ -505,7 +511,9 @@ export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: bo
                 })}
               </DndSortableList>
 
-              <AddListColumn />
+              <div>
+                <AddListColumn />
+              </div>
             </div>
           </DndBoard>
         )}

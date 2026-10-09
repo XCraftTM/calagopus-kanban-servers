@@ -93,7 +93,7 @@ export function ListShell({
     <div
       className={classNames(
         'kanban-list relative flex flex-col w-[var(--kanban-list-width,20rem)] rounded-xl border',
-        'max-h-[calc(100dvh-15rem)] min-h-24',
+        'max-h-full min-h-24',
         color ? tintedListClasses : plainListClasses,
         'transition-[box-shadow,background-color,border-color] duration-150',
         isDropTarget && 'ring-2 ring-(--mantine-color-blue-filled)',

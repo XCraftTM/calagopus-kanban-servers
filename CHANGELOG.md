@@ -3,6 +3,15 @@
 All notable changes to this extension are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.1] - 2026-10-09
+
+### Fixed
+
+- The board now fills the window down to the footer, so its horizontal scrollbar always sits at the bottom
+  of the screen instead of under the tallest list. Lists still grow with their cards up to the board height
+  and scroll inside when longer. On very small windows the board keeps a minimum height of 24rem.
+- Dragging the empty space below a short list now scrolls the board sideways, like the space between lists.
+
 ## [1.1.0] - 2026-10-09
 
 ### Added

@@ -37,7 +37,7 @@ export default function CollapsedList({
       {...dragHandleProps}
       className={classNames(
         'kanban-list-collapsed relative flex w-11 flex-col items-center gap-2 overflow-hidden rounded-xl border py-2',
-        'max-h-[calc(100dvh-15rem)] min-h-40',
+        'max-h-full min-h-40',
         color ? tintedListClasses : plainListClasses,
         color ? tintedListHoverClasses : plainListHoverClasses,
         'transition-colors',

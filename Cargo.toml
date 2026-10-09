@@ -2,7 +2,7 @@
 name = "dev_xcrafttm_kanbanservers"
 description = "Shows grouped servers as a Trello-style Kanban board."
 authors = ["XCraftTM"]
-version = "1.1.0"
+version = "1.1.1"
 edition = { workspace = true }
 
 [dependencies]
