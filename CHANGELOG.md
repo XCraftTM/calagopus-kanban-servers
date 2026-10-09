@@ -3,7 +3,14 @@
 All notable changes to this extension are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.0.1] - 2026-10-09
+## [1.1.0] - 2026-10-09
+
+### Added
+
+- Custom list colors: "Custom color..." in the list menu opens a color picker with the presets, a
+  saturation/hue picker, a hex field and a live preview.
+- Colored lists get a slight tint of their color in the background and border (also when collapsed), in
+  light and dark mode.
 
 ### Fixed
 

@@ -41,11 +41,20 @@ const translations = defineTranslations({
           selectAll: 'Select all servers in this list',
           color: 'List color',
           noColor: 'No color',
+          customColor: 'Custom color...',
           powerAll: 'Power all servers',
           delete: 'Delete list',
         },
         toast: {
           renamed: 'List renamed.',
+        },
+        colorModal: {
+          title: 'Color of {list}',
+          preview: 'Preview',
+          presets: 'Presets',
+          custom: 'Custom color',
+          hex: 'Hex code',
+          invalidHex: 'Enter a color like #3b82f6.',
         },
       },
       composer: {

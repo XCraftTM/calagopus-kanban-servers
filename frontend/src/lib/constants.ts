@@ -37,6 +37,16 @@ export const listColors = [
 export const listColorSchema = z.enum(listColors);
 export type ListColor = z.infer<typeof listColorSchema>;
 
+// a list color is either a preset (follows the light/dark palette) or any custom hex color
+export const hexColorSchema = z.string().regex(/^#[0-9a-f]{6}$/i);
+export const listColorValueSchema = z.union([listColorSchema, hexColorSchema]);
+export type ListColorValue = z.infer<typeof listColorValueSchema>;
+
+export const isPresetColor = (color: string): color is ListColor => (listColors as readonly string[]).includes(color);
+
+export const colorToCss = (color: ListColorValue) =>
+  isPresetColor(color) ? `var(--mantine-color-${color}-filled)` : color;
+
 export const settingKeys = {
   view: `${PACKAGE_NAME}::view`,
   collapsed: `${PACKAGE_NAME}::collapsed`,

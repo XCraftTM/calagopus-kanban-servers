@@ -22,8 +22,8 @@ import { useTranslations } from '@/providers/TranslationProvider.tsx';
 import { useUserStore } from '@/stores/user.ts';
 import type { Server } from '../../lib/api.ts';
 import {
-  ListColor,
-  listColorSchema,
+  type ListColorValue,
+  listColorValueSchema,
   type StatusFilter,
   settingKeys,
   statusFilterSchema,
@@ -231,15 +231,15 @@ export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: bo
 
   // ---- list preferences ----
   const colorOf = useCallback(
-    (uuid: string): ListColor | null => {
-      const parsed = listColorSchema.safeParse(colors[uuid]);
+    (uuid: string): ListColorValue | null => {
+      const parsed = listColorValueSchema.safeParse(colors[uuid]);
       return parsed.success ? parsed.data : null;
     },
     [colors],
   );
 
   const setColor = useCallback(
-    (uuid: string, color: ListColor | null) =>
+    (uuid: string, color: ListColorValue | null) =>
       setColors((previous) => {
         const next = { ...previous };
         if (color) {

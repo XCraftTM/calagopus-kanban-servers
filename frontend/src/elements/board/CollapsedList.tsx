@@ -3,9 +3,16 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import classNames from 'classnames';
 import { ComponentProps } from 'react';
 import Tooltip from '@/elements/overlays/Tooltip.tsx';
-import type { ListColor } from '../../lib/constants.ts';
+import { colorToCss, type ListColorValue } from '../../lib/constants.ts';
 import type { ServerGroup } from '../../lib/useBoardActions.ts';
 import { useExtTranslations } from '../../translations.ts';
+import {
+  listTintStyle,
+  plainListClasses,
+  plainListHoverClasses,
+  tintedListClasses,
+  tintedListHoverClasses,
+} from './listTint.ts';
 
 // Trello's collapsed list: a slim vertical bar that still accepts dropped cards.
 export default function CollapsedList({
@@ -18,7 +25,7 @@ export default function CollapsedList({
 }: {
   group: ServerGroup;
   count: number;
-  color: ListColor | null;
+  color: ListColorValue | null;
   isDropTarget: boolean;
   onExpand: () => void;
   dragHandleProps?: ComponentProps<'div'>;
@@ -31,18 +38,15 @@ export default function CollapsedList({
       className={classNames(
         'kanban-list-collapsed relative flex w-11 flex-col items-center gap-2 overflow-hidden rounded-xl border py-2',
         'max-h-[calc(100dvh-15rem)] min-h-40',
-        'bg-(--mantine-color-dark-7) light:bg-(--mantine-color-gray-1)! border-(--mantine-color-default-border)',
-        'transition-colors hover:bg-(--mantine-color-dark-6) light:hover:bg-(--mantine-color-gray-2)!',
+        color ? tintedListClasses : plainListClasses,
+        color ? tintedListHoverClasses : plainListHoverClasses,
+        'transition-colors',
         isDropTarget && 'ring-2 ring-(--mantine-color-blue-filled)',
       )}
-      style={{ ...dragHandleProps?.style }}
+      style={{ ...dragHandleProps?.style, ...listTintStyle(color) }}
     >
       {color && (
-        <div
-          aria-hidden
-          className='absolute inset-x-0 top-0 h-1.5'
-          style={{ backgroundColor: `var(--mantine-color-${color}-filled)` }}
-        />
+        <div aria-hidden className='absolute inset-x-0 top-0 h-1.5' style={{ backgroundColor: colorToCss(color) }} />
       )}
       <Tooltip label={tExt('board.list.menu.expand', {})} position='right'>
         <button

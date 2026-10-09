@@ -29,11 +29,21 @@ import Tooltip from '@/elements/overlays/Tooltip.tsx';
 import { useBulkPowerActions } from '@/plugins/server/useBulkPowerActions.ts';
 import { useTranslations } from '@/providers/TranslationProvider.tsx';
 import type { Server } from '../../lib/api.ts';
-import { GROUP_NAME_MAX, GROUP_NAME_MIN, ListColor, listColors, MAX_SERVERS_PER_GROUP } from '../../lib/constants.ts';
+import {
+  colorToCss,
+  GROUP_NAME_MAX,
+  GROUP_NAME_MIN,
+  isPresetColor,
+  type ListColorValue,
+  listColors,
+  MAX_SERVERS_PER_GROUP,
+} from '../../lib/constants.ts';
 import { DropBlockReason, ServerGroup, useBoardActionsContext } from '../../lib/useBoardActions.ts';
 import type { CardDragData } from '../../lib/useBoardDnd.ts';
 import { useExtTranslations } from '../../translations.ts';
 import CardComposer from './CardComposer.tsx';
+import ListColorModal from './ListColorModal.tsx';
+import { listTintStyle, plainListClasses, tintedListClasses } from './listTint.ts';
 import ServerCard from './ServerCard.tsx';
 
 export interface CardSelection {
@@ -53,8 +63,8 @@ export interface BoardListProps {
   serverMap: Map<string, Server>;
   loading: boolean;
   filterActive: boolean;
-  color: ListColor | null;
-  onColorChange?: (color: ListColor | null) => void;
+  color: ListColorValue | null;
+  onColorChange?: (color: ListColorValue | null) => void;
   onCollapse?: () => void;
   isDropTarget: boolean;
   blockedReason: DropBlockReason | null;
@@ -73,7 +83,7 @@ export function ListShell({
   className,
   children,
 }: {
-  color: ListColor | null;
+  color: ListColorValue | null;
   isDropTarget?: boolean;
   overlay?: boolean;
   className?: string;
@@ -84,19 +94,16 @@ export function ListShell({
       className={classNames(
         'kanban-list relative flex flex-col w-[var(--kanban-list-width,20rem)] rounded-xl border',
         'max-h-[calc(100dvh-15rem)] min-h-24',
-        'bg-(--mantine-color-dark-7) light:bg-(--mantine-color-gray-1)! border-(--mantine-color-default-border)',
-        'transition-shadow duration-150',
+        color ? tintedListClasses : plainListClasses,
+        'transition-[box-shadow,background-color,border-color] duration-150',
         isDropTarget && 'ring-2 ring-(--mantine-color-blue-filled)',
         overlay && 'rotate-2 shadow-2xl',
         className,
       )}
+      style={listTintStyle(color)}
     >
       {color && (
-        <div
-          aria-hidden
-          className='h-1.5 shrink-0 rounded-t-[11px]'
-          style={{ backgroundColor: `var(--mantine-color-${color}-filled)` }}
-        />
+        <div aria-hidden className='h-1.5 shrink-0 rounded-t-[11px]' style={{ backgroundColor: colorToCss(color) }} />
       )}
       {children}
     </div>
@@ -131,6 +138,7 @@ export default function BoardList({
   const [menuOpened, setMenuOpened] = useState(false);
   const [composerOpened, setComposerOpened] = useState(false);
   const [deleteOpened, setDeleteOpened] = useState(false);
+  const [colorOpened, setColorOpened] = useState(false);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
 
@@ -166,6 +174,16 @@ export default function BoardList({
             group: group.name,
           }).md()}
         </ConfirmationModal>
+      )}
+
+      {group && onColorChange && !overlay && (
+        <ListColorModal
+          opened={colorOpened}
+          onClose={() => setColorOpened(false)}
+          listName={group.name}
+          color={color}
+          onSave={onColorChange}
+        />
       )}
 
       <BlockedOverlay
@@ -287,7 +305,7 @@ export default function BoardList({
                     <FontAwesomeIcon icon={faPalette} className='mr-1.5' />
                     {tExt('board.list.menu.color', {})}
                   </Menu.Label>
-                  <div className='grid grid-cols-6 gap-1.5 px-3 pb-2 pt-1'>
+                  <div className='grid grid-cols-7 gap-1.5 px-3 pb-2 pt-1'>
                     {listColors.map((c) => (
                       <button
                         key={c}
@@ -302,22 +320,44 @@ export default function BoardList({
                           c === color &&
                             'ring-2 ring-offset-1 ring-(--mantine-color-text) ring-offset-(--mantine-color-body)',
                         )}
-                        style={{ backgroundColor: `var(--mantine-color-${c}-filled)` }}
+                        style={{ backgroundColor: colorToCss(c) }}
                       />
                     ))}
-                    <Tooltip label={tExt('board.list.menu.noColor', {})}>
-                      <button
-                        type='button'
-                        aria-label={tExt('board.list.menu.noColor', {})}
-                        onClick={() => {
-                          onColorChange(null);
-                          setMenuOpened(false);
-                        }}
-                        className='h-6 w-full rounded-md border border-dashed border-(--mantine-color-default-border) text-(--mantine-color-dimmed) hover:scale-110 transition-transform'
-                      >
-                        <FontAwesomeIcon icon={faXmark} className='text-xs' />
-                      </button>
-                    </Tooltip>
+                    <button
+                      type='button'
+                      aria-label={tExt('board.list.menu.customColor', {})}
+                      title={tExt('board.list.menu.customColor', {})}
+                      onClick={() => {
+                        setMenuOpened(false);
+                        setColorOpened(true);
+                      }}
+                      className={classNames(
+                        'flex h-6 w-full items-center justify-center rounded-md transition-transform hover:scale-110',
+                        color &&
+                          !isPresetColor(color) &&
+                          'ring-2 ring-offset-1 ring-(--mantine-color-text) ring-offset-(--mantine-color-body)',
+                      )}
+                      style={{
+                        background:
+                          color && !isPresetColor(color)
+                            ? color
+                            : 'conic-gradient(#ef4444, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7, #ef4444)',
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faPalette} className='text-[10px] text-white drop-shadow' />
+                    </button>
+                    <button
+                      type='button'
+                      aria-label={tExt('board.list.menu.noColor', {})}
+                      title={tExt('board.list.menu.noColor', {})}
+                      onClick={() => {
+                        onColorChange(null);
+                        setMenuOpened(false);
+                      }}
+                      className='h-6 w-full rounded-md border border-dashed border-(--mantine-color-default-border) text-(--mantine-color-dimmed) hover:scale-110 transition-transform'
+                    >
+                      <FontAwesomeIcon icon={faXmark} className='text-xs' />
+                    </button>
                   </div>
                 </>
               )}

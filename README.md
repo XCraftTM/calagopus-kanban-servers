@@ -23,6 +23,8 @@ them by dragging.
   to another list, also add it to another list, or remove it from the list.
 - **List actions.** Click a list title to rename it. The list menu adds servers, selects all cards,
   collapses the list into a slim bar, gives it a color, powers every server in it, or deletes it.
+- **List colors.** Pick one of the presets or any custom color with the color picker. A colored list gets
+  a colored top bar and a slight tint of its color in the background.
 - **Add lists and servers inline.** "Add another list" sits at the end of the board, and every list has an
   "Add a server" composer at the bottom.
 - **Filter the board** by name, description, egg, node or address, and show only running or offline servers.
@@ -55,7 +57,7 @@ To update, replace the archive with the new one. There is nothing to configure.
 
 **Where is my data stored?**
 The board uses the panel's own server groups, so lists, card order and list order are the same data the
-stock page uses. List colors, collapsed lists, the Ungrouped toggle and the Board/List choice are stored as
+stock page uses. List colors (a preset name or a hex code), collapsed lists, the Ungrouped toggle and the Board/List choice are stored as
 your user settings.
 
 **Can a server be in more than one list?**
