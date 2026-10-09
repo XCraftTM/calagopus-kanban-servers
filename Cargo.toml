@@ -1,0 +1,10 @@
+[package]
+name = "dev_xcrafttm_kanbanservers"
+description = "Shows grouped servers as a Trello-style Kanban board."
+authors = ["XCraftTM"]
+version = "1.0.0"
+edition = { workspace = true }
+
+[dependencies]
+shared = { workspace = true }
+async-trait = { workspace = true }
