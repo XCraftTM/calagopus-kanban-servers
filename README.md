@@ -65,6 +65,11 @@ Yes, like in the stock page. Use "Also add to list" in the card menu. Dragging a
 The list already contains that server, or it is full (a group holds at most 100 servers). The list shows a
 notice while you hover it.
 
+**Does it work with themes?**
+Yes. It was tested with the qunix theme, which moves the page tabs into its own toolbar and hides the page
+header. In that case the board keeps the tabs where the theme put them and shows the Board/List toggle at the
+right end of its own toolbar. The theme's own list/grid and Customize buttons only affect the stock view.
+
 **Does disabling the extension break anything?**
 No. The page goes back to the stock grouped view, and your groups are untouched.
 
@@ -81,6 +86,14 @@ through the panel's existing server group API (`/api/client/servers/groups/...`)
 replaces the container's `children` with `KanbanSwitch` and appends the Board/List toggle to
 `contentRight`. `KanbanSwitch` renders the board, or the original children when the user picked the list
 view. No core module is overridden, so disabling the extension restores the stock page.
+
+Themes can rearrange the page before this interceptor runs. If the incoming children no longer contain the
+stock `DashboardHomeTitle` (a theme moved the tabs elsewhere), the board doesn't render its own copy. If
+`hideTitleComponent` is set (the header and `contentRight` are hidden), the toggle is rendered inline instead.
+
+List width is measured, not hard-coded: `ListWidthProbe` renders the widest realistic chip row off-screen
+(longest status label, `999%`, two `1023 MiB` chips) and the lists become exactly wide enough for it, but at
+least 20rem. A `ResizeObserver` and `document.fonts.ready` re-measure when a theme's web font arrives late.
 
 ### Layout
 

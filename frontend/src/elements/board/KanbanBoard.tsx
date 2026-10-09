@@ -2,7 +2,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { faCircleInfo, faEyeSlash, faFilter, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import ActionIcon from '@/elements/buttons/ActionIcon.tsx';
 import { DndBoard, DndSortableList, SortableItem } from '@/elements/dnd/DragAndDrop.tsx';
@@ -33,9 +33,11 @@ import { BoardActionsContext, useBoardActions } from '../../lib/useBoardActions.
 import { useBoardData } from '../../lib/useBoardData.ts';
 import { type ListDragData, listDndId, useBoardDnd } from '../../lib/useBoardDnd.ts';
 import { useExtTranslations } from '../../translations.ts';
+import ViewToggle from '../ViewToggle.tsx';
 import AddListColumn from './AddListColumn.tsx';
 import BoardList, { BoardListProps, CardSelection, ListShell, LoadMoreButton } from './BoardList.tsx';
 import CollapsedList from './CollapsedList.tsx';
+import ListWidthProbe from './ListWidthProbe.tsx';
 import ServerCard from './ServerCard.tsx';
 
 const showUngroupedSchema = z.boolean();
@@ -75,7 +77,7 @@ function UngroupedColumn(props: Omit<BoardListProps, 'group' | 'columnId'>) {
   );
 }
 
-export default function KanbanBoard() {
+export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: boolean; inlineToggle: boolean }) {
   const { t: tExt } = useExtTranslations();
   const { t } = useTranslations();
   const actions = useBoardActions();
@@ -287,6 +289,10 @@ export default function KanbanBoard() {
     window.addEventListener('pointerup', onUp);
   };
 
+  // lists are as wide as one row of the widest chips needs, but never narrower than 20rem
+  const [listWidth, setListWidth] = useState(320);
+  const onProbeWidth = useCallback((chipRowWidth: number) => setListWidth(Math.max(320, chipRowWidth + 44)), []);
+
   const listIds = useMemo(() => data.groups.map((group) => listDndId(group.uuid)), [data.groups]);
   const activeListGroup = dnd.activeListId ? data.groups.find((g) => g.uuid === dnd.activeListId) : null;
 
@@ -346,160 +352,164 @@ export default function KanbanBoard() {
 
   return (
     <BoardActionsContext.Provider value={actions}>
-      <DashboardHomeTitle />
+      <div className='kanban-root relative' style={{ '--kanban-list-width': `${listWidth}px` } as CSSProperties}>
+        <ListWidthProbe onWidth={onProbeWidth} />
+        {showTitle && <DashboardHomeTitle />}
 
-      <BulkActionBar
-        selectedCount={selected.size}
-        onClear={() => setSelected(new ObjectSet('uuid'))}
-        onAction={onBulkAction}
-        loading={bulkActionLoading}
-      />
+        <BulkActionBar
+          selectedCount={selected.size}
+          onClear={() => setSelected(new ObjectSet('uuid'))}
+          onAction={onBulkAction}
+          loading={bulkActionLoading}
+        />
 
-      <div className='flex flex-wrap items-center gap-2 mb-3'>
-        <TextInput
-          size='xs'
-          value={filter}
-          onChange={(e) => setFilter(e.currentTarget.value)}
-          placeholder={tExt('board.filter.placeholder', {})}
-          leftSection={<FontAwesomeIcon icon={faFilter} className='text-xs' />}
-          rightSection={
-            filter ? (
-              <ActionIcon
-                size='xs'
-                variant='subtle'
-                color='gray'
-                aria-label={tExt('board.filter.clear', {})}
-                onClick={() => setFilter('')}
-              >
-                <FontAwesomeIcon icon={faXmark} />
-              </ActionIcon>
-            ) : null
-          }
-          className='w-full sm:w-64'
-        />
-        <SegmentedControl
-          size='xs'
-          value={statusFilter}
-          onChange={(value) => setStatusFilter(statusFilterSchema.parse(value))}
-          data={[
-            { value: 'all', label: tExt('board.filter.status.all', {}) },
-            { value: 'running', label: tExt('board.filter.status.running', {}) },
-            { value: 'offline', label: tExt('board.filter.status.offline', {}) },
-          ]}
-        />
-        {filterActive && (
-          <span className='text-xs text-(--mantine-color-dimmed)'>
-            {tExt('board.filter.matching', { count: matchingCount })}
-          </span>
-        )}
-        <div className='ml-auto flex items-center gap-3'>
-          <Switch
+        <div className='flex flex-wrap items-center gap-2 mb-3'>
+          <TextInput
             size='xs'
-            label={tExt('board.ungrouped.show', {})}
-            checked={showUngrouped}
-            onChange={(e) => setShowUngrouped(e.currentTarget.checked)}
+            value={filter}
+            onChange={(e) => setFilter(e.currentTarget.value)}
+            placeholder={tExt('board.filter.placeholder', {})}
+            leftSection={<FontAwesomeIcon icon={faFilter} className='text-xs' />}
+            rightSection={
+              filter ? (
+                <ActionIcon
+                  size='xs'
+                  variant='subtle'
+                  color='gray'
+                  aria-label={tExt('board.filter.clear', {})}
+                  onClick={() => setFilter('')}
+                >
+                  <FontAwesomeIcon icon={faXmark} />
+                </ActionIcon>
+              ) : null
+            }
+            className='w-full sm:w-64'
           />
-          <Tooltip label={tExt('board.dragHint', {})} multiline w={260} position='bottom-end'>
-            <FontAwesomeIcon icon={faCircleInfo} className='text-(--mantine-color-dimmed)' />
-          </Tooltip>
-        </div>
-      </div>
-
-      {data.loading ? (
-        <Spinner.Centered />
-      ) : (
-        <DndBoard
-          collisionDetection={dnd.collisionDetection}
-          describeItem={dnd.describeItem}
-          onDragStart={dnd.onDragStart}
-          onDragOver={dnd.onDragOver}
-          onDragEnd={dnd.onDragEnd}
-          onDragCancel={dnd.onDragCancel}
-          renderOverlay={renderOverlay}
-        >
-          <div
-            ref={scrollRef}
-            onPointerDown={onBoardPointerDown}
-            className='kanban-board flex items-start gap-3 overflow-x-auto pb-4 min-h-64 *:shrink-0'
-          >
-            {showUngrouped && (
-              <UngroupedColumn
-                {...commonListProps}
-                uuids={dnd.columns[UNGROUPED_ID] ?? []}
-                visibleUuids={visibleColumns[UNGROUPED_ID] ?? []}
-                loading={data.ungrouped.loading}
-                color={null}
-                isDropTarget={dnd.activeContainer === UNGROUPED_ID && dnd.activeCard?.sourceId !== UNGROUPED_ID}
-                blockedReason={null}
-                headerExtra={
-                  <Tooltip label={t('common.button.close', {})}>
-                    <ActionIcon
-                      variant='subtle'
-                      color='gray'
-                      size='sm'
-                      aria-label={t('common.button.close', {})}
-                      onClick={() => setShowUngrouped(false)}
-                    >
-                      <FontAwesomeIcon icon={faEyeSlash} className='text-xs' />
-                    </ActionIcon>
-                  </Tooltip>
-                }
-                footer={
-                  data.ungrouped.hasMore ? (
-                    <LoadMoreButton loading={data.ungrouped.loadingMore} onClick={() => data.ungrouped.loadMore()} />
-                  ) : null
-                }
-              />
-            )}
-
-            <DndSortableList id={LISTS_CONTAINER_ID} items={listIds} strategy={horizontalListSortingStrategy}>
-              {data.groups.map((group) => {
-                const isCollapsed = !!collapsed[group.uuid];
-                const isDropTarget =
-                  dnd.blocked?.columnId === group.uuid ||
-                  (dnd.activeContainer === group.uuid && dnd.activeCard?.sourceId !== group.uuid);
-
-                return (
-                  <SortableItem
-                    key={group.uuid}
-                    id={listDndId(group.uuid)}
-                    data={{ type: 'list', columnId: group.uuid } satisfies ListDragData}
-                    renderItem={({ dragHandleProps }) =>
-                      isCollapsed ? (
-                        <CollapsedList
-                          group={group}
-                          count={group.serverOrder.length}
-                          color={colorOf(group.uuid)}
-                          isDropTarget={isDropTarget}
-                          onExpand={() => setListCollapsed(group.uuid, false)}
-                          dragHandleProps={dragHandleProps}
-                        />
-                      ) : (
-                        <BoardList
-                          {...commonListProps}
-                          columnId={group.uuid}
-                          group={group}
-                          uuids={dnd.columns[group.uuid] ?? []}
-                          visibleUuids={visibleColumns[group.uuid] ?? []}
-                          loading={data.loadingGroups.has(group.uuid)}
-                          color={colorOf(group.uuid)}
-                          onColorChange={(color) => setColor(group.uuid, color)}
-                          onCollapse={() => setListCollapsed(group.uuid, true)}
-                          isDropTarget={isDropTarget}
-                          blockedReason={dnd.blocked?.columnId === group.uuid ? dnd.blocked.reason : null}
-                          dragHandleProps={dragHandleProps}
-                        />
-                      )
-                    }
-                  />
-                );
-              })}
-            </DndSortableList>
-
-            <AddListColumn />
+          <SegmentedControl
+            size='xs'
+            value={statusFilter}
+            onChange={(value) => setStatusFilter(statusFilterSchema.parse(value))}
+            data={[
+              { value: 'all', label: tExt('board.filter.status.all', {}) },
+              { value: 'running', label: tExt('board.filter.status.running', {}) },
+              { value: 'offline', label: tExt('board.filter.status.offline', {}) },
+            ]}
+          />
+          {filterActive && (
+            <span className='text-xs text-(--mantine-color-dimmed)'>
+              {tExt('board.filter.matching', { count: matchingCount })}
+            </span>
+          )}
+          <div className='ml-auto flex items-center gap-3'>
+            <Switch
+              size='xs'
+              label={tExt('board.ungrouped.show', {})}
+              checked={showUngrouped}
+              onChange={(e) => setShowUngrouped(e.currentTarget.checked)}
+            />
+            <Tooltip label={tExt('board.dragHint', {})} multiline w={260} position='bottom-end'>
+              <FontAwesomeIcon icon={faCircleInfo} className='text-(--mantine-color-dimmed)' />
+            </Tooltip>
+            {inlineToggle && <ViewToggle />}
           </div>
-        </DndBoard>
-      )}
+        </div>
+
+        {data.loading ? (
+          <Spinner.Centered />
+        ) : (
+          <DndBoard
+            collisionDetection={dnd.collisionDetection}
+            describeItem={dnd.describeItem}
+            onDragStart={dnd.onDragStart}
+            onDragOver={dnd.onDragOver}
+            onDragEnd={dnd.onDragEnd}
+            onDragCancel={dnd.onDragCancel}
+            renderOverlay={renderOverlay}
+          >
+            <div
+              ref={scrollRef}
+              onPointerDown={onBoardPointerDown}
+              className='kanban-board flex items-start gap-3 overflow-x-auto pb-4 min-h-64 *:shrink-0'
+            >
+              {showUngrouped && (
+                <UngroupedColumn
+                  {...commonListProps}
+                  uuids={dnd.columns[UNGROUPED_ID] ?? []}
+                  visibleUuids={visibleColumns[UNGROUPED_ID] ?? []}
+                  loading={data.ungrouped.loading}
+                  color={null}
+                  isDropTarget={dnd.activeContainer === UNGROUPED_ID && dnd.activeCard?.sourceId !== UNGROUPED_ID}
+                  blockedReason={null}
+                  headerExtra={
+                    <Tooltip label={t('common.button.close', {})}>
+                      <ActionIcon
+                        variant='subtle'
+                        color='gray'
+                        size='sm'
+                        aria-label={t('common.button.close', {})}
+                        onClick={() => setShowUngrouped(false)}
+                      >
+                        <FontAwesomeIcon icon={faEyeSlash} className='text-xs' />
+                      </ActionIcon>
+                    </Tooltip>
+                  }
+                  footer={
+                    data.ungrouped.hasMore ? (
+                      <LoadMoreButton loading={data.ungrouped.loadingMore} onClick={() => data.ungrouped.loadMore()} />
+                    ) : null
+                  }
+                />
+              )}
+
+              <DndSortableList id={LISTS_CONTAINER_ID} items={listIds} strategy={horizontalListSortingStrategy}>
+                {data.groups.map((group) => {
+                  const isCollapsed = !!collapsed[group.uuid];
+                  const isDropTarget =
+                    dnd.blocked?.columnId === group.uuid ||
+                    (dnd.activeContainer === group.uuid && dnd.activeCard?.sourceId !== group.uuid);
+
+                  return (
+                    <SortableItem
+                      key={group.uuid}
+                      id={listDndId(group.uuid)}
+                      data={{ type: 'list', columnId: group.uuid } satisfies ListDragData}
+                      renderItem={({ dragHandleProps }) =>
+                        isCollapsed ? (
+                          <CollapsedList
+                            group={group}
+                            count={group.serverOrder.length}
+                            color={colorOf(group.uuid)}
+                            isDropTarget={isDropTarget}
+                            onExpand={() => setListCollapsed(group.uuid, false)}
+                            dragHandleProps={dragHandleProps}
+                          />
+                        ) : (
+                          <BoardList
+                            {...commonListProps}
+                            columnId={group.uuid}
+                            group={group}
+                            uuids={dnd.columns[group.uuid] ?? []}
+                            visibleUuids={visibleColumns[group.uuid] ?? []}
+                            loading={data.loadingGroups.has(group.uuid)}
+                            color={colorOf(group.uuid)}
+                            onColorChange={(color) => setColor(group.uuid, color)}
+                            onCollapse={() => setListCollapsed(group.uuid, true)}
+                            isDropTarget={isDropTarget}
+                            blockedReason={dnd.blocked?.columnId === group.uuid ? dnd.blocked.reason : null}
+                            dragHandleProps={dragHandleProps}
+                          />
+                        )
+                      }
+                    />
+                  );
+                })}
+              </DndSortableList>
+
+              <AddListColumn />
+            </div>
+          </DndBoard>
+        )}
+      </div>
     </BoardActionsContext.Provider>
   );
 }

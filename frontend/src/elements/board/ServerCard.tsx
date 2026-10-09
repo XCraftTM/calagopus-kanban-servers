@@ -39,6 +39,7 @@ import { useTranslations } from '@/providers/TranslationProvider.tsx';
 import { useUserStore } from '@/stores/user.ts';
 import type { Server } from '../../lib/api.ts';
 import { MAX_SERVERS_PER_GROUP, UNGROUPED_ID } from '../../lib/constants.ts';
+import { compactBytes } from '../../lib/format.ts';
 import { sortGroups, useBoardActionsContext } from '../../lib/useBoardActions.ts';
 import { useExtTranslations } from '../../translations.ts';
 import Chip from './Chip.tsx';
@@ -66,14 +67,6 @@ function usageColor(percent: number | null) {
 }
 
 const percentOf = (used: number, limit: number) => (limit > 0 ? (used / limit) * 100 : null);
-
-// chips are tiny, so drop the decimals once the number has two digits ("5.9 GiB", "102 MiB")
-const compactBytes = (bytes: number) => {
-  const full = bytesToString(bytes, 1, true);
-  const value = Number.parseFloat(full);
-
-  return Number.isFinite(value) && value >= 10 ? bytesToString(bytes, 0, true) : full;
-};
 
 function ServerCard({
   server,

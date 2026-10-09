@@ -82,7 +82,7 @@ export function ListShell({
   return (
     <div
       className={classNames(
-        'kanban-list relative flex flex-col w-80 rounded-xl border',
+        'kanban-list relative flex flex-col w-[var(--kanban-list-width,20rem)] rounded-xl border',
         'max-h-[calc(100dvh-15rem)] min-h-24',
         'bg-(--mantine-color-dark-7) light:bg-(--mantine-color-gray-1)! border-(--mantine-color-default-border)',
         'transition-shadow duration-150',

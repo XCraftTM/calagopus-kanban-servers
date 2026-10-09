@@ -45,7 +45,7 @@ export default function AddListColumn() {
       <button
         type='button'
         onClick={() => setOpened(true)}
-        className='flex w-80 shrink-0 items-center gap-2 rounded-xl border border-dashed border-(--mantine-color-default-border) px-3 py-2.5 text-sm font-medium text-(--mantine-color-dimmed) transition-colors hover:border-(--mantine-color-dimmed) hover:bg-(--mantine-color-default-hover) hover:text-(--mantine-color-text)'
+        className='flex w-[var(--kanban-list-width,20rem)] shrink-0 items-center gap-2 rounded-xl border border-dashed border-(--mantine-color-default-border) px-3 py-2.5 text-sm font-medium text-(--mantine-color-dimmed) transition-colors hover:border-(--mantine-color-dimmed) hover:bg-(--mantine-color-default-hover) hover:text-(--mantine-color-text)'
       >
         <FontAwesomeIcon icon={faPlus} />
         {tExt('board.addList.button', {})}
@@ -55,7 +55,7 @@ export default function AddListColumn() {
 
   return (
     <form
-      className='flex w-80 shrink-0 flex-col gap-2 rounded-xl border border-(--mantine-color-default-border) bg-(--mantine-color-dark-7) light:bg-(--mantine-color-gray-1)! p-2'
+      className='flex w-[var(--kanban-list-width,20rem)] shrink-0 flex-col gap-2 rounded-xl border border-(--mantine-color-default-border) bg-(--mantine-color-dark-7) light:bg-(--mantine-color-gray-1)! p-2'
       onSubmit={(e) => {
         e.preventDefault();
         submit();
