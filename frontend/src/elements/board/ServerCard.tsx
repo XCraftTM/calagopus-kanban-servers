@@ -403,7 +403,7 @@ function ServerCard({
 
                   <div className='flex flex-wrap items-center gap-1 mt-0.5 min-w-0'>
                     {address ? (
-                      <CopyOnClick content={address} className='min-w-0 max-w-full'>
+                      <CopyOnClick content={address} className='flex min-w-0 max-w-full'>
                         <Chip icon={faNetworkWired} tooltip={tExt('board.card.address', {})} className='cursor-pointer'>
                           <RedactedText value={address} />
                         </Chip>
