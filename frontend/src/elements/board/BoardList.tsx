@@ -74,6 +74,8 @@ export interface BoardListProps {
   footer?: ReactNode;
   headerExtra?: ReactNode;
   overlay?: boolean;
+  // space between cards in pixels (admin setting)
+  cardGap: number;
 }
 
 export function ListShell({
@@ -129,6 +131,7 @@ export default function BoardList({
   footer,
   headerExtra,
   overlay = false,
+  cardGap,
 }: BoardListProps) {
   const { t, tItem } = useTranslations();
   const { t: tExt } = useExtTranslations();
@@ -408,7 +411,7 @@ export default function BoardList({
           </div>
         ) : (
           <DndSortableList id={columnId} items={cardIds} strategy={verticalListSortingStrategy}>
-            <div className='flex flex-col gap-2 min-h-10 pb-1'>
+            <div className='flex flex-col min-h-10 pb-1' style={{ gap: cardGap }}>
               {servers.map((server, i) => (
                 <SortableItem
                   key={cardIds[i]}

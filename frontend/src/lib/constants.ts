@@ -13,6 +13,7 @@ export const queryKeys = {
   all: ['extensions', PACKAGE_NAME] as const,
   groupServers: (groupUuid: string) => ['extensions', PACKAGE_NAME, 'group', groupUuid] as const,
   ungrouped: () => ['extensions', PACKAGE_NAME, 'ungrouped'] as const,
+  config: () => ['extensions', PACKAGE_NAME, 'config'] as const,
 };
 
 export const viewSchema = z.enum(['board', 'list']);
@@ -52,4 +53,6 @@ export const settingKeys = {
   collapsed: `${PACKAGE_NAME}::collapsed`,
   colors: `${PACKAGE_NAME}::colors`,
   showUngrouped: `${PACKAGE_NAME}::show_ungrouped`,
+  // lists that sit below the previous list in the same column (only used while stacking is allowed)
+  stacked: `${PACKAGE_NAME}::stacked`,
 };

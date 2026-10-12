@@ -8,6 +8,23 @@ const translations = defineTranslations({
       board: 'Board',
       list: 'List',
     },
+    settings: {
+      cards: {
+        title: 'Cards',
+        gap: 'Gap between cards',
+        gapDescription: 'Space between the cards of a list, from {min} to {max} pixels.',
+        preview: 'Preview',
+      },
+      lists: {
+        title: 'Lists',
+        stacking: 'Allow stacking lists',
+        stackingDescription:
+          'Users can drag a list onto another list to stack them on top of each other in one column. Each user arranges their own board.',
+      },
+      toast: {
+        saved: 'Kanban settings saved.',
+      },
+    },
     board: {
       filter: {
         placeholder: 'Filter cards...',

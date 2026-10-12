@@ -1,4 +1,4 @@
-import { faAnglesRight } from '@fortawesome/free-solid-svg-icons';
+import { faAnglesDown, faAnglesRight } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import classNames from 'classnames';
 import { ComponentProps } from 'react';
@@ -14,7 +14,8 @@ import {
   tintedListHoverClasses,
 } from './listTint.ts';
 
-// Trello's collapsed list: a slim vertical bar that still accepts dropped cards.
+// Trello's collapsed list: a slim vertical bar that still accepts dropped cards. Inside a stack of lists it
+// becomes a slim horizontal row instead, as wide as the column.
 export default function CollapsedList({
   group,
   count,
@@ -22,6 +23,7 @@ export default function CollapsedList({
   isDropTarget,
   onExpand,
   dragHandleProps,
+  orientation = 'vertical',
 }: {
   group: ServerGroup;
   count: number;
@@ -29,8 +31,44 @@ export default function CollapsedList({
   isDropTarget: boolean;
   onExpand: () => void;
   dragHandleProps?: ComponentProps<'div'>;
+  orientation?: 'vertical' | 'horizontal';
 }) {
   const { t: tExt } = useExtTranslations();
+
+  if (orientation === 'horizontal') {
+    return (
+      <div
+        {...dragHandleProps}
+        className={classNames(
+          'kanban-list-collapsed relative flex h-11 w-full shrink-0 items-center gap-2 overflow-hidden rounded-xl border px-2',
+          color ? tintedListClasses : plainListClasses,
+          color ? tintedListHoverClasses : plainListHoverClasses,
+          'transition-colors',
+          isDropTarget && 'ring-2 ring-(--mantine-color-blue-filled)',
+        )}
+        style={{ ...dragHandleProps?.style, ...listTintStyle(color) }}
+      >
+        {color && (
+          <div aria-hidden className='absolute inset-y-0 left-0 w-1.5' style={{ backgroundColor: colorToCss(color) }} />
+        )}
+        <Tooltip label={tExt('board.list.menu.expand', {})}>
+          <button
+            type='button'
+            onClick={onExpand}
+            className='ml-1 flex size-7 items-center justify-center rounded-md text-(--mantine-color-dimmed) hover:bg-(--mantine-color-default-hover) hover:text-(--mantine-color-text)'
+          >
+            <FontAwesomeIcon icon={faAnglesDown} className='text-xs' />
+          </button>
+        </Tooltip>
+        <button type='button' onClick={onExpand} className='min-w-0 flex-1 truncate text-left text-sm font-semibold'>
+          {group.name}
+        </button>
+        <span className='rounded-full bg-(--mantine-color-default-hover) px-2 py-0.5 text-[11px] font-semibold tabular-nums text-(--mantine-color-dimmed)'>
+          {count}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -3,6 +3,24 @@
 All notable changes to this extension are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0] - 2026-10-12
+
+### Added
+
+- Admin settings page (Admin → Extensions → Kanban Servers → Configure) with a live preview:
+  - **Gap between cards**, 0–32 px (default 8 px).
+  - **Allow stacking lists** (off by default): users can drag a list onto another list to stack them in one
+    column, or onto a column edge to give it its own column again. A blue line shows where it lands, stacked
+    lists share the column height, and collapsed lists become a slim row inside a stack. The stacking is
+    saved per user.
+- Backend routes for the settings (`extensions.read` / `extensions.manage`, saves are written to the admin
+  activity log) and a config route for the board.
+
+### Fixed
+
+- Chips on a card are aligned again: the address chip sat a fraction of a pixel off the egg chip, and the
+  chip text sat higher than its icon depending on the font. The text is now centred on its cap height.
+
 ## [1.1.1] - 2026-10-09
 
 ### Fixed

@@ -48,10 +48,13 @@ export function useBoardDnd({
   columns: baseColumns,
   groups,
   actions,
+  listDrop = null,
 }: {
   columns: Columns;
   groups: ServerGroup[];
   actions: BoardActions;
+  // set while lists can be stacked: list drops are then placed by the stacking layout, not the sortable row
+  listDrop?: { onDrop: (listUuid: string) => void; onCancel: () => void } | null;
 }) {
   const [draft, setDraft] = useState<Columns | null>(null);
   const [activeCard, setActiveCard] = useState<ActiveCard | null>(null);
@@ -228,6 +231,11 @@ export function useBoardDnd({
       if (kind === 'list') {
         reset();
 
+        if (listDrop) {
+          listDrop.onDrop((dataOf(active) as ListDragData).columnId);
+          return;
+        }
+
         const overData = over ? dataOf(over) : undefined;
         if (!over || active.id === over.id || overData?.type !== 'list') return;
 
@@ -267,7 +275,7 @@ export function useBoardDnd({
       reset();
       void pending;
     },
-    [actions, groups, reset],
+    [actions, groups, listDrop, reset],
   );
 
   const describeItem = useCallback(
@@ -303,6 +311,9 @@ export function useBoardDnd({
     onDragStart,
     onDragOver,
     onDragEnd,
-    onDragCancel: reset,
+    onDragCancel: () => {
+      reset();
+      listDrop?.onCancel();
+    },
   };
 }

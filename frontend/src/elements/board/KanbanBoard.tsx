@@ -1,8 +1,19 @@
-import { useDroppable } from '@dnd-kit/core';
+import { DragMoveEvent, useDndMonitor, useDraggable, useDroppable } from '@dnd-kit/core';
 import { horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { faCircleInfo, faEyeSlash, faFilter, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { CSSProperties, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ComponentProps,
+  CSSProperties,
+  Fragment,
+  ReactNode,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { z } from 'zod';
 import ActionIcon from '@/elements/buttons/ActionIcon.tsx';
 import { DndBoard, DndSortableList, SortableItem } from '@/elements/dnd/DragAndDrop.tsx';
@@ -21,6 +32,7 @@ import { useBulkPowerActions } from '@/plugins/server/useBulkPowerActions.ts';
 import { useTranslations } from '@/providers/TranslationProvider.tsx';
 import { useUserStore } from '@/stores/user.ts';
 import type { Server } from '../../lib/api.ts';
+import { useKanbanConfig } from '../../lib/config.ts';
 import {
   type ListColorValue,
   listColorValueSchema,
@@ -29,7 +41,15 @@ import {
   statusFilterSchema,
   UNGROUPED_ID,
 } from '../../lib/constants.ts';
-import { BoardActionsContext, useBoardActions } from '../../lib/useBoardActions.ts';
+import {
+  applyListMove,
+  buildColumns,
+  hitTestListTarget,
+  type ListDropTarget,
+  sameTarget,
+  stackFlags,
+} from '../../lib/listStacking.ts';
+import { BoardActionsContext, type ServerGroup, useBoardActions } from '../../lib/useBoardActions.ts';
 import { useBoardData } from '../../lib/useBoardData.ts';
 import { type ListDragData, listDndId, useBoardDnd } from '../../lib/useBoardDnd.ts';
 import { useFillViewportHeight } from '../../lib/useFillViewportHeight.ts';
@@ -78,6 +98,97 @@ function UngroupedColumn(props: Omit<BoardListProps, 'group' | 'columnId'>) {
   );
 }
 
+// A list inside a stack: draggable by its header and a drop zone for cards, without the sortable row.
+function StackedListItem({
+  group,
+  collapsed,
+  children,
+}: {
+  group: ServerGroup;
+  collapsed: boolean;
+  children: (dragHandleProps: ComponentProps<'div'>) => ReactNode;
+}) {
+  const data = useMemo(() => ({ type: 'list', columnId: group.uuid }) satisfies ListDragData, [group.uuid]);
+  const draggable = useDraggable({ id: listDndId(group.uuid), data });
+  const droppable = useDroppable({ id: listDndId(group.uuid), data });
+
+  const { setNodeRef: setDraggableRef } = draggable;
+  const { setNodeRef: setDroppableRef } = droppable;
+  const setRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setDraggableRef(node);
+      setDroppableRef(node);
+    },
+    [setDraggableRef, setDroppableRef],
+  );
+
+  const dragHandleProps = useMemo(
+    () =>
+      ({
+        ...draggable.attributes,
+        ...draggable.listeners,
+        style: { cursor: draggable.isDragging ? 'grabbing' : 'grab', touchAction: 'manipulation' },
+      }) as unknown as ComponentProps<'div'>,
+    [draggable.attributes, draggable.listeners, draggable.isDragging],
+  );
+
+  return (
+    <div
+      ref={setRef}
+      data-kanban-stack-item
+      // lists in a stack share the column height (each one scrolls inside); collapsed rows keep their size
+      className={collapsed ? 'flex shrink-0 flex-col transition-opacity' : 'flex min-h-0 flex-col transition-opacity'}
+      style={{ opacity: draggable.isDragging ? 0.4 : 1 }}
+    >
+      {children(dragHandleProps)}
+    </div>
+  );
+}
+
+// Tracks where a dragged list would land while stacking is allowed.
+function ListDragMonitor({
+  boardRef,
+  onTarget,
+}: {
+  boardRef: React.RefObject<HTMLDivElement | null>;
+  onTarget: (target: ListDropTarget | null) => void;
+}) {
+  useDndMonitor({
+    onDragMove(event: DragMoveEvent) {
+      const board = boardRef.current;
+      if (!board || event.active.data.current?.type !== 'list') return;
+
+      let x: number;
+      let y: number;
+      const start = event.activatorEvent;
+      if (start instanceof MouseEvent) {
+        x = start.clientX + event.delta.x;
+        y = start.clientY + event.delta.y;
+      } else if (typeof TouchEvent !== 'undefined' && start instanceof TouchEvent && start.touches[0]) {
+        x = start.touches[0].clientX + event.delta.x;
+        y = start.touches[0].clientY + event.delta.y;
+      } else {
+        // keyboard dragging has no pointer: use the middle of the dragged list
+        const rect = event.active.rect.current.translated;
+        if (!rect) return;
+        x = rect.left + rect.width / 2;
+        y = rect.top + rect.height / 2;
+      }
+
+      onTarget(hitTestListTarget(board, x, y));
+    },
+  });
+
+  return null;
+}
+
+const ColumnDropIndicator = () => (
+  <div aria-hidden className='w-1 -mx-2 rounded-full bg-(--mantine-color-blue-filled)' />
+);
+const StackDropIndicator = () => (
+  <div aria-hidden className='h-1 shrink-0 -my-2 rounded-full bg-(--mantine-color-blue-filled)' />
+);
+
 export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: boolean; inlineToggle: boolean }) {
   const { t: tExt } = useExtTranslations();
   const { t } = useTranslations();
@@ -87,8 +198,43 @@ export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: bo
   const [collapsed, setCollapsed] = useUserSetting(settingKeys.collapsed, collapsedSchema, emptyBooleanMap);
   const [colors, setColors] = useUserSetting(settingKeys.colors, colorsSchema, emptyStringMap);
 
+  const [stacked, setStacked] = useUserSetting(settingKeys.stacked, collapsedSchema, emptyBooleanMap);
+  const config = useKanbanConfig();
+  const stacking = config.allowListStacking;
+
   const data = useBoardData(showUngrouped);
-  const dnd = useBoardDnd({ columns: data.columns, groups: data.groups, actions });
+
+  // ---- stacked lists (admin setting): columns of lists, built from the group order + per-user flags ----
+  const stackColumns = useMemo(() => buildColumns(data.groups, stacked, stacking), [data.groups, stacked, stacking]);
+  const [listTarget, setListTargetState] = useState<ListDropTarget | null>(null);
+  const listTargetRef = useRef<ListDropTarget | null>(null);
+  const setListTarget = useCallback((target: ListDropTarget | null) => {
+    if (sameTarget(listTargetRef.current, target)) return;
+    listTargetRef.current = target;
+    setListTargetState(target);
+  }, []);
+
+  const listDrop = useMemo(() => {
+    if (!stacking) return null;
+
+    return {
+      onDrop: (listUuid: string) => {
+        const target = listTargetRef.current;
+        setListTarget(null);
+        if (!target) return;
+
+        const before = stackColumns.map((column) => column.map((group) => group.uuid));
+        const after = applyListMove(before, listUuid, target);
+        const order = after.flat();
+
+        if (order.join() !== data.groups.map((group) => group.uuid).join()) void actions.reorderGroups(order);
+        setStacked(stackFlags(after));
+      },
+      onCancel: () => setListTarget(null),
+    };
+  }, [actions, data.groups, setListTarget, setStacked, stackColumns, stacking]);
+
+  const dnd = useBoardDnd({ columns: data.columns, groups: data.groups, actions, listDrop });
 
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -320,6 +466,7 @@ export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: bo
             color={colorOf(activeListGroup.uuid)}
             isDropTarget={false}
             onExpand={() => null}
+            orientation={stacking ? 'horizontal' : 'vertical'}
           />
         );
       }
@@ -337,7 +484,7 @@ export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: bo
               {activeListGroup.serverOrder.length}
             </span>
           </div>
-          <div className='flex flex-col gap-2 px-2 pb-2 overflow-hidden'>
+          <div className='flex flex-col px-2 pb-2 overflow-hidden' style={{ gap: config.cardGap }}>
             {preview.map((server) => (
               <ServerCard key={server.uuid} server={server} columnId={activeListGroup.uuid} overlay />
             ))}
@@ -354,6 +501,40 @@ export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: bo
     filterActive,
     cardIdFor: dnd.cardIdFor,
     selection,
+    cardGap: config.cardGap,
+  };
+
+  const renderList = (group: ServerGroup, dragHandleProps: ComponentProps<'div'>) => {
+    const isDropTarget =
+      dnd.blocked?.columnId === group.uuid ||
+      (dnd.activeContainer === group.uuid && dnd.activeCard?.sourceId !== group.uuid);
+
+    return collapsed[group.uuid] ? (
+      <CollapsedList
+        group={group}
+        count={group.serverOrder.length}
+        color={colorOf(group.uuid)}
+        isDropTarget={isDropTarget}
+        onExpand={() => setListCollapsed(group.uuid, false)}
+        dragHandleProps={dragHandleProps}
+        orientation={stacking ? 'horizontal' : 'vertical'}
+      />
+    ) : (
+      <BoardList
+        {...commonListProps}
+        columnId={group.uuid}
+        group={group}
+        uuids={dnd.columns[group.uuid] ?? []}
+        visibleUuids={visibleColumns[group.uuid] ?? []}
+        loading={data.loadingGroups.has(group.uuid)}
+        color={colorOf(group.uuid)}
+        onColorChange={(color) => setColor(group.uuid, color)}
+        onCollapse={() => setListCollapsed(group.uuid, true)}
+        isDropTarget={isDropTarget}
+        blockedReason={dnd.blocked?.columnId === group.uuid ? dnd.blocked.reason : null}
+        dragHandleProps={dragHandleProps}
+      />
+    );
   };
 
   return (
@@ -432,6 +613,7 @@ export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: bo
             onDragCancel={dnd.onDragCancel}
             renderOverlay={renderOverlay}
           >
+            {stacking && <ListDragMonitor boardRef={scrollRef} onTarget={setListTarget} />}
             <div
               ref={scrollRef}
               onPointerDown={onBoardPointerDown}
@@ -467,49 +649,45 @@ export default function KanbanBoard({ showTitle, inlineToggle }: { showTitle: bo
                 />
               )}
 
-              <DndSortableList id={LISTS_CONTAINER_ID} items={listIds} strategy={horizontalListSortingStrategy}>
-                {data.groups.map((group) => {
-                  const isCollapsed = !!collapsed[group.uuid];
-                  const isDropTarget =
-                    dnd.blocked?.columnId === group.uuid ||
-                    (dnd.activeContainer === group.uuid && dnd.activeCard?.sourceId !== group.uuid);
-
-                  return (
+              {stacking ? (
+                <>
+                  {stackColumns.map((column, columnIndex) => (
+                    <Fragment key={column[0].uuid}>
+                      {listTarget?.kind === 'column' && listTarget.index === columnIndex && <ColumnDropIndicator />}
+                      <div
+                        data-kanban-column
+                        className='flex w-[var(--kanban-list-width,20rem)] min-h-0 flex-col gap-3'
+                      >
+                        {column.map((group, listIndex) => (
+                          <Fragment key={group.uuid}>
+                            {listTarget?.kind === 'stack' &&
+                              listTarget.column === columnIndex &&
+                              listTarget.index === listIndex && <StackDropIndicator />}
+                            <StackedListItem group={group} collapsed={!!collapsed[group.uuid]}>
+                              {(dragHandleProps) => renderList(group, dragHandleProps)}
+                            </StackedListItem>
+                          </Fragment>
+                        ))}
+                        {listTarget?.kind === 'stack' &&
+                          listTarget.column === columnIndex &&
+                          listTarget.index === column.length && <StackDropIndicator />}
+                      </div>
+                    </Fragment>
+                  ))}
+                  {listTarget?.kind === 'column' && listTarget.index === stackColumns.length && <ColumnDropIndicator />}
+                </>
+              ) : (
+                <DndSortableList id={LISTS_CONTAINER_ID} items={listIds} strategy={horizontalListSortingStrategy}>
+                  {data.groups.map((group) => (
                     <SortableItem
                       key={group.uuid}
                       id={listDndId(group.uuid)}
                       data={{ type: 'list', columnId: group.uuid } satisfies ListDragData}
-                      renderItem={({ dragHandleProps }) =>
-                        isCollapsed ? (
-                          <CollapsedList
-                            group={group}
-                            count={group.serverOrder.length}
-                            color={colorOf(group.uuid)}
-                            isDropTarget={isDropTarget}
-                            onExpand={() => setListCollapsed(group.uuid, false)}
-                            dragHandleProps={dragHandleProps}
-                          />
-                        ) : (
-                          <BoardList
-                            {...commonListProps}
-                            columnId={group.uuid}
-                            group={group}
-                            uuids={dnd.columns[group.uuid] ?? []}
-                            visibleUuids={visibleColumns[group.uuid] ?? []}
-                            loading={data.loadingGroups.has(group.uuid)}
-                            color={colorOf(group.uuid)}
-                            onColorChange={(color) => setColor(group.uuid, color)}
-                            onCollapse={() => setListCollapsed(group.uuid, true)}
-                            isDropTarget={isDropTarget}
-                            blockedReason={dnd.blocked?.columnId === group.uuid ? dnd.blocked.reason : null}
-                            dragHandleProps={dragHandleProps}
-                          />
-                        )
-                      }
+                      renderItem={({ dragHandleProps }) => renderList(group, dragHandleProps)}
                     />
-                  );
-                })}
-              </DndSortableList>
+                  ))}
+                </DndSortableList>
+              )}
 
               <div>
                 <AddListColumn />

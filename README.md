@@ -30,6 +30,10 @@ them by dragging.
 - **Filter the board** by name, description, egg, node or address, and show only running or offline servers.
 - **Bulk power actions** work like on the stock page: tick cards with their check button, or hold `S` and
   click them.
+- **Stack lists (optional).** When an admin allows it, drag a list onto another list to stack them on top
+  of each other in one column. Drop it on the middle of a list to stack it above or below; drop it on a
+  column's left or right edge, or between columns, to give it its own column again. A blue line shows where
+  it lands. Stacked lists share the column height.
 - **Switch back any time.** The Board / List toggle next to the page title returns to the stock grouped
   view. The choice is saved per user.
 
@@ -51,7 +55,19 @@ development environment).
    `panel-rs extensions add dev_xcrafttm_kanbanservers.c7s.zip` and `panel-rs extensions apply`.
 3. Open **Servers → Grouped Servers**.
 
-To update, replace the archive with the new one. There is nothing to configure.
+To update, replace the archive with the new one.
+
+## Settings
+
+**Admin → Extensions → Kanban Servers → Configure** has two options for the whole panel:
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| Gap between cards | 8 px | Space between the cards of a list, from 0 to 32 pixels. A preview shows the spacing. |
+| Allow stacking lists | Off | Lets users stack lists on top of each other in one column. Each user arranges their own board. When it is turned off again, every list goes back to its own column; the stacking is remembered for when it is turned back on. |
+
+Reading the settings needs the `extensions.read` admin permission, saving needs `extensions.manage`.
+Every save is written to the admin activity log.
 
 ## FAQ
 
@@ -79,8 +95,17 @@ No. The page goes back to the stock grouped view, and your groups are untouched.
 
 ## Technical notes
 
-The extension is frontend-only. Its Rust crate is an empty `ExtensionStruct`, because everything goes
-through the panel's existing server group API (`/api/client/servers/groups/...`).
+The board works on the panel's existing server group API (`/api/client/servers/groups/...`). The Rust part
+only stores the two admin settings (raw settings rows `card_gap` and `allow_list_stacking`, with defaults
+for missing or broken values) and serves them:
+
+| Route | Permission | Purpose |
+| --- | --- | --- |
+| `GET /api/client/extensions/dev.xcrafttm.kanbanservers/config` | signed in | settings for the board |
+| `GET /api/admin/extensions/dev.xcrafttm.kanbanservers/settings` | `extensions.read` | settings page |
+| `PUT /api/admin/extensions/dev.xcrafttm.kanbanservers/settings` | `extensions.manage` | save, validated, logged as `settings:extensions:update` |
+
+If the config can't be loaded, the board uses the defaults.
 
 ### How the board replaces the page
 
@@ -109,6 +134,9 @@ frontend/src/
     useBoardData.ts          groups, per-list queries, server lookup map, ungrouped list
     useBoardActions.ts       move/add/remove/reorder/rename/create/delete with optimistic updates + rollback
     useBoardDnd.ts           dnd-kit state for cards across lists and for list reordering
+    listStacking.ts          stacked columns: layout, drop-target hit test, applying a move
+    config.ts                admin settings API + the board's config query
+  pages/ConfigurationPage.tsx  admin settings page (Save button and Ctrl+S)
   elements/
     KanbanSwitch.tsx, ViewToggle.tsx
     board/KanbanBoard.tsx    toolbar, selection, filters, DnD board
@@ -116,6 +144,17 @@ frontend/src/
     board/ServerCard.tsx     the card and its menu
     board/Chip.tsx, CollapsedList.tsx, CardComposer.tsx, AddListColumn.tsx
 ```
+
+### Stacked lists
+
+The group order stays one flat list (the core order). A per-user setting (`dev.xcrafttm.kanbanservers::stacked`)
+marks the lists that sit below the previous list in the same column, so `buildColumns` turns the order into
+columns. While stacking is allowed, lists use `useDraggable`/`useDroppable` instead of the sortable row, and a
+`useDndMonitor` listener hit-tests the pointer against the columns: the outer quarter of a column on either
+side means "new column here", the middle means "stack above or below the list under the pointer". On drop,
+`applyListMove` rebuilds the columns, the new order is saved with `PUT /groups/order` and the flags with the
+user setting. The drop indicators use negative margins that cancel the flex gap, so showing them doesn't
+shift the lists under the pointer.
 
 ### Board height
 

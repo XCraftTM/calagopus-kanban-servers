@@ -5,9 +5,10 @@ import DashboardHomeTitle from '@/pages/dashboard/home/DashboardHomeTitle.tsx';
 import KanbanSwitch from './elements/KanbanSwitch.tsx';
 import ViewToggle from './elements/ViewToggle.tsx';
 import { containsElementOfType } from './lib/react.ts';
+import ConfigurationPage from './pages/ConfigurationPage.tsx';
 
 class DevXcrafttmKanbanserversExtension extends Extension {
-  public cardConfigurationPage: React.FC | null = null;
+  public cardConfigurationPage: React.FC | null = ConfigurationPage;
   public cardComponent: React.FC | null = null;
   public cardIcon: React.ReactNode = <FontAwesomeIcon icon={faTableColumns} />;
 
